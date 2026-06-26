@@ -7,6 +7,16 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// Use the npm-installed static ffmpeg binary so this works on hosts without
+// a system ffmpeg (e.g. Render's native Node runtime). If for any reason
+// the package is missing, we fall back to a bare `ffmpeg` lookup on PATH.
+let ffmpegPath = 'ffmpeg';
+try {
+  ffmpegPath = require('@ffmpeg-installer/ffmpeg').path || 'ffmpeg';
+} catch (_) {
+  console.warn('[recordings] @ffmpeg-installer/ffmpeg not installed; falling back to system ffmpeg');
+}
+
 const Recording = require('../models/Recording');
 const Transcript = require('../models/Transcript');
 const { storeRecording } = require('../services/storageService');
@@ -125,7 +135,7 @@ router.post('/:id/upload', upload.single('recording'), async (req, res) => {
     fs.writeFileSync(inputPath, req.file.buffer);
 
     await new Promise((resolve) => {
-      const cmd = `ffmpeg -y -i "${inputPath}" -c copy "${outputPath}"`;
+      const cmd = `"${ffmpegPath}" -y -i "${inputPath}" -c copy "${outputPath}"`;
       exec(cmd, (err, stdout, stderr) => {
         if (err) {
           console.warn('ffmpeg failed, using original:', stderr);

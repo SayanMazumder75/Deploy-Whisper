@@ -2,8 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { API_URL, SOCKET_URL } from '../config';
 
-const SERVER_URL = 'http://localhost:5000';
+const SERVER_URL = API_URL;
 
 function MeetingDetail() {
   const { id } = useParams();
@@ -27,7 +28,7 @@ function MeetingDetail() {
       .then(r => { if (r.data.segments) setSegments(r.data.segments); })
       .catch(() => {});
 
-    const socket = io(SERVER_URL);
+    const socket = io(SOCKET_URL);
     socket.emit('join-recording', id);
     socket.on('transcript-update', (data) => setSegments(prev => [...prev, data]));
     return () => socket.disconnect();

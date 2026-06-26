@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 function SummaryView({ recordingId }) {
   const [summary, setSummary] = useState(null);
@@ -10,7 +11,7 @@ function SummaryView({ recordingId }) {
 
   const fetchSummary = useCallback(async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/summaries/${recordingId}`);
+      const res = await axios.get(`${API_URL}/api/summaries/${recordingId}`);
       setSummary(res.data);
       clearInterval(pollRef.current);
     } catch {
@@ -31,7 +32,7 @@ function SummaryView({ recordingId }) {
     setError(null);
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/summaries/${recordingId}/generate`
+        `${API_URL}/api/summaries/${recordingId}/generate`
       );
       setSummary(res.data);
       clearInterval(pollRef.current);

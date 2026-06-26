@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import RecordingControls from '../components/RecordingControls';
 import RecordingsList from '../components/RecordingsList';
+import { API_URL } from '../config';
 import '../styles/dashboard.css';
 
 function Dashboard() {
@@ -9,7 +10,7 @@ function Dashboard() {
   const [activeRecordingId, setActiveRecordingId] = useState(null);
 
   const fetchStats = () => {
-    axios.get('http://localhost:5000/api/recordings')
+    axios.get(`${API_URL}/api/recordings`)
       .then((res) => {
         const recs = res.data;
         setStats({
