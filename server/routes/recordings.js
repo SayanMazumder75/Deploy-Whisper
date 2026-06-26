@@ -163,25 +163,55 @@ router.post('/:id/upload', upload.single('recording'), async (req, res) => {
 
 // POST audio chunk for transcription
 router.post('/:id/chunk', upload.single('chunk'), async (req, res) => {
+  const recordingId = req.params.id;
   try {
-    const recordingId = req.params.id;
     const io = req.app.get('io');
 
+    if (!req.file) {
+      console.error(`[chunk ${recordingId}] no file in request — multer did not receive 'chunk' field`);
+      return res.status(400).json({ error: "missing 'chunk' field" });
+    }
+
+    const sizeMB = (req.file.buffer.length / 1024 / 1024).toFixed(2);
+    console.log(
+      `[chunk ${recordingId}] received file=${req.file.originalname} ` +
+      `size=${sizeMB}MB mimetype=${req.file.mimetype}`
+    );
+
+    console.log(`[chunk ${recordingId}] calling transcribeAudio...`);
     const result = await transcribeAudio(req.file.buffer, `chunk_${Date.now()}.webm`);
+    console.log(
+      `[chunk ${recordingId}] whisper returned ` +
+      `text.length=${(result?.text || '').length} language=${result?.language}`
+    );
 
     if (result.text && result.text.trim()) {
       let transcript = await Transcript.findOne({ recordingId });
       if (!transcript) {
+        console.log(`[chunk ${recordingId}] creating new Transcript document`);
         transcript = new Transcript({ recordingId, segments: [], fullText: '' });
+      } else {
+        console.log(`[chunk ${recordingId}] appending to existing Transcript`);
       }
       transcript.segments.push({ text: result.text, timestamp: Date.now() });
       transcript.fullText += ' ' + result.text;
       await transcript.save();
+      console.log(
+        `[chunk ${recordingId}] transcript saved — ` +
+        `segments=${transcript.segments.length} fullText.length=${transcript.fullText.length}`
+      );
       io.to(recordingId).emit('transcript-update', { text: result.text });
+    } else {
+      console.warn(
+        `[chunk ${recordingId}] SKIPPING transcript save: whisper returned empty text. ` +
+        `This is why GET /api/transcripts/${recordingId} will 404 and summary will say "Step 1 FAILED".`
+      );
     }
     console.log('TRANSCRIPT:', result.text);
     res.json({ text: result.text });
   } catch (err) {
+    console.error(`[chunk ${recordingId}] route error: ${err.message}`);
+    console.error(err.stack);
     res.status(500).json({ error: err.message });
   }
 });
