@@ -15,6 +15,8 @@ Environment variables:
 
 import os
 import shutil
+import sys
+import traceback
 import uuid
 
 from faster_whisper import WhisperModel
@@ -22,13 +24,19 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+
+def log(msg: str) -> None:
+    """Print and flush so Render's log buffer surfaces lines immediately."""
+    print(msg, flush=True)
+
+
 MODEL_SIZE = os.getenv("WHISPER_MODEL", "small")
 DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
 COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE", "int8")
 
-print(f"[whisper_service] loading model={MODEL_SIZE} device={DEVICE} compute={COMPUTE_TYPE}")
+log(f"[whisper_service] loading model={MODEL_SIZE} device={DEVICE} compute={COMPUTE_TYPE}")
 model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
-print("[whisper_service] model loaded")
+log("[whisper_service] model loaded")
 
 app = FastAPI()
 
@@ -67,15 +75,38 @@ async def transcribe(file: UploadFile = File(...)):
     with open(temp_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
+    size_bytes = os.path.getsize(temp_path)
+    log(
+        f"[transcribe] received file name={file.filename} "
+        f"content_type={file.content_type} size={size_bytes / 1024 / 1024:.2f}MB"
+    )
+
     try:
+        log("[transcribe] running model.transcribe(beam_size=1, language='en')...")
         segments, info = model.transcribe(temp_path, beam_size=1, language="en")
 
-        text = " ".join(segment.text for segment in segments)
+        # `segments` is a generator; materialise it so we can count + log.
+        seg_list = list(segments)
+        text = " ".join(segment.text for segment in seg_list)
+
+        log(
+            f"[transcribe] done — segments={len(seg_list)} "
+            f"text.length={len(text)} language={info.language} "
+            f"duration={getattr(info, 'duration', 'n/a')}s"
+        )
+        if len(text) == 0:
+            log(
+                "[transcribe] WARNING: 0 segments returned. "
+                "Either the input has no detectable speech, or audio decoding failed. "
+                "The Node side will skip saving a Transcript document, leading to a 404 "
+                "on /api/transcripts/:id and 'Step 1 FAILED' on summary generation."
+            )
 
         return JSONResponse({"text": text, "language": info.language})
 
     except Exception as e:
-        print(f"Error processing audio: {e}")
+        log(f"[transcribe] EXCEPTION: {type(e).__name__}: {e}")
+        log(traceback.format_exc())
         return JSONResponse({"text": "", "language": "unknown"})
 
     finally:
