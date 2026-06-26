@@ -2,3 +2,8 @@ fastapi==0.115.6
 uvicorn[standard]==0.32.1
 faster-whisper==1.1.0
 python-multipart==0.0.20
+# faster-whisper 1.1.0 does `import requests` in faster_whisper/utils.py but
+# does not declare it as a dependency — it relied on huggingface_hub<1.0 to
+# pull it in transitively. huggingface_hub 1.x dropped that dep, so we
+# declare requests explicitly here to keep installs reproducible.
+requests==2.32.3
