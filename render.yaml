@@ -1,0 +1,62 @@
+# Render Blueprint — one-click deploy for both backend services.
+#
+# Usage:
+#   1. Push this repo to GitHub.
+#   2. In Render, click "New +" -> "Blueprint" and select this repo.
+#   3. Render will create both services. Fill in the marked `sync: false`
+#      env vars (MONGO_URI, GROQ_API_KEY, CLIENT_URL) in the dashboard.
+#
+# Notes:
+#   - WHISPER_SERVICE_URL on the Node service is automatically wired to
+#     the URL of the whisper service via `fromService`.
+#   - The Whisper service needs at least the Starter plan (512MB) for the
+#     "base" model, or Standard (2GB) for "small". Free tier (512MB) is
+#     tight even for "base" because the model loads into RAM at start-up.
+
+services:
+  # ── Python FastAPI service running faster-whisper ───────────────────
+  - type: web
+    name: deploy-whisper-asr
+    runtime: python
+    plan: starter
+    rootDir: whisper_service
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: WHISPER_MODEL
+        value: base
+      - key: WHISPER_DEVICE
+        value: cpu
+      - key: WHISPER_COMPUTE
+        value: int8
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: PYTHON_VERSION
+        value: 3.11.9
+
+  # ── Node/Express API + Socket.io ────────────────────────────────────
+  - type: web
+    name: deploy-whisper-api
+    runtime: node
+    plan: starter
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.1
+      # WHISPER_SERVICE_URL must be the full https URL of the whisper service
+      # (e.g. https://deploy-whisper-asr.onrender.com). Render's `fromService`
+      # only exposes the hostname, not a full URL, so set this manually in the
+      # dashboard after the whisper service is first deployed.
+      - key: WHISPER_SERVICE_URL
+        sync: false
+      # Fill these in via the Render dashboard (sync: false).
+      - key: MONGO_URI
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CLIENT_URL
+        sync: false

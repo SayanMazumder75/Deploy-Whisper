@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
+import { API_URL, SOCKET_URL } from '../config';
 
 function LiveTranscript({ recordingId }) {
   const [segments, setSegments] = useState([]);
@@ -9,13 +10,13 @@ function LiveTranscript({ recordingId }) {
 
   useEffect(() => {
     // Fetch existing transcript on load
-    axios.get(`http://localhost:5000/api/transcripts/${recordingId}`)
+    axios.get(`${API_URL}/api/transcripts/${recordingId}`)
       .then((res) => {
         if (res.data.segments) setSegments(res.data.segments);
       })
       .catch(() => {}); // no transcript yet is fine
 
-    socketRef.current = io('http://localhost:5000');
+    socketRef.current = io(SOCKET_URL);
     socketRef.current.emit('join-recording', recordingId);
 
     socketRef.current.on('transcript-update', (data) => {

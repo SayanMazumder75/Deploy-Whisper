@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
+import { API_URL, SOCKET_URL } from '../config';
 
 // Source icons & labels
 const SOURCE_CONFIG = {
@@ -16,7 +17,7 @@ function RecordingsList() {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const fetchRecordings = () => {
-    axios.get('http://localhost:5000/api/recordings')
+    axios.get(`${API_URL}/api/recordings`)
       .then((res) => setRecordings(res.data))
       .catch((err) => console.error('Failed to fetch recordings:', err))
       .finally(() => setLoading(false));
@@ -24,7 +25,7 @@ function RecordingsList() {
 
   useEffect(() => {
     fetchRecordings();
-    const socket = io('http://localhost:5000');
+    const socket = io(SOCKET_URL);
     socket.on('recording-created', (newRecording) => setRecordings((prev) => [newRecording, ...prev]));
     socket.on('recording-updated', (updated) => setRecordings((prev) => prev.map((rec) => rec._id === updated._id ? updated : rec)));
     socket.on('recording-deleted', (deletedId) => setRecordings((prev) => prev.filter((rec) => rec._id !== deletedId)));
@@ -34,7 +35,7 @@ function RecordingsList() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await axios.delete(`http://localhost:5000/api/recordings/${deleteTarget}`);
+      await axios.delete(`${API_URL}/api/recordings/${deleteTarget}`);
       setRecordings((prev) => prev.filter((rec) => rec._id !== deleteTarget));
     } catch (err) {
       console.error('Failed to delete recording:', err);

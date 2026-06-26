@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 import '../styles/recording-controls.css';
 
-const SERVER_URL = 'http://localhost:5000';
+const SERVER_URL = API_URL;
 
 const SOURCE_OPTIONS = [
   { value: 'meeting', emoji: '🎯', label: 'Meeting' },
@@ -23,7 +24,7 @@ function openFloatingStopWindow() {
   );
 
   if (!popup) {
-    alert('Please allow popups for localhost:3000 — click the popup blocked icon in your address bar!');
+    alert(`Please allow popups for ${window.location.origin} — click the popup blocked icon in your address bar!`);
     return null;
   }
 
