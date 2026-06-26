@@ -13,18 +13,24 @@ const app = express();
 const server = http.createServer(app);
 
 // ── CORS ────────────────────────────────────────────────────────────────
-// CLIENT_URL can be a single origin or comma-separated list of allowed
-// origins (e.g. "https://meetmind.vercel.app,https://staging.vercel.app").
-// In development we default to the CRA dev server origin.
-const clientOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+// In production, set CLIENT_URL to a single origin or comma-separated list
+// (e.g. "https://meetmind.vercel.app,https://staging.vercel.app") and the
+// API will reject any other origin.
+//
+// In development, leave CLIENT_URL unset. The API will then accept any
+// origin (matching the pre-deploy `cors()` behavior so the Chrome extension,
+// curl, etc. continue to work locally).
+const clientOriginsRaw = process.env.CLIENT_URL;
+const clientOrigins = clientOriginsRaw
+  ? clientOriginsRaw.split(',').map((s) => s.trim()).filter(Boolean)
+  : [];
+const allowAnyOrigin = clientOrigins.length === 0;
 
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow same-origin / curl / health checks with no Origin header.
     if (!origin) return callback(null, true);
+    if (allowAnyOrigin) return callback(null, true);
     if (clientOrigins.includes(origin)) return callback(null, true);
     return callback(new Error(`CORS: origin ${origin} not allowed`));
   },
@@ -33,7 +39,11 @@ const corsOptions = {
 };
 
 const io = new Server(server, {
-  cors: { origin: clientOrigins, methods: ['GET', 'POST'], credentials: true },
+  cors: {
+    origin: allowAnyOrigin ? true : clientOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 
 // Make io accessible in routes via req.app.get('io')
@@ -80,5 +90,9 @@ mongoose
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Allowed client origins: ${clientOrigins.join(', ')}`);
+  console.log(
+    `Allowed client origins: ${
+      allowAnyOrigin ? '(any — CLIENT_URL not set)' : clientOrigins.join(', ')
+    }`
+  );
 });
